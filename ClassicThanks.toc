@@ -1,8 +1,8 @@
 ## Interface: 11509
 ## Title: ClassicThanks
-## Notes: Say thanks for player buffs over two minutes, or choose private whispers.
+## Notes: Automatically whisper thanks for player buffs lasting over two minutes.
 ## Author: Sinestro
-## Version: 0.1.0-beta.2
+## Version: 0.1.0-beta.3
 ## SavedVariables: ClassicThanksDB
 
 ClassicThanks.lua

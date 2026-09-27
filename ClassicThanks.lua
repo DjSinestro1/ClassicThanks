@@ -30,36 +30,10 @@ local messages = {
     "Beauty, eh? Thanks a bunch for the buff!",
 }
 local frame = CreateFrame("Frame")
-local sayDraft
 local db, ready, lastMessage
 local pending, lastSent = {}, {}
 local generation, lastAttempt, sent, errors = 0, -math.huge, 0, 0
 local function Print(text) print("|cff66ddffClassicThanks:|r " .. text) end
-local function PrepareSay(text)
-    if db.channel ~= "SAY" or (IsInInstance and IsInInstance()) then return false end
-    sayDraft = {text = text, expires = GetTime() + 30}
-    Print("Thanks ready. Type /ct send, then press Enter to say it (expires in 30s).")
-    return true
-end
-local function OpenSay()
-    if not sayDraft or GetTime() > sayDraft.expires then
-        sayDraft = nil; Print("No recent thanks waiting."); return
-    end
-    if not db.enabled or db.channel ~= "SAY" or (InCombatLockdown and InCombatLockdown()) then
-        Print("Cannot prepare say right now. Leave combat and keep channel set to say."); return
-    end
-    local open = ChatFrameUtil and ChatFrameUtil.OpenChat or ChatFrame_OpenChat
-    if not open then Print("Chat editor unavailable."); return end
-    local draft = sayDraft
-    -- Slash-command processing clears the editor on return. Open next frame.
-    -- This only prepares text; the player must still press Enter to send.
-    C_Timer.After(0, function()
-        if sayDraft ~= draft or not db.enabled or db.channel ~= "SAY"
-            or GetTime() > draft.expires or (InCombatLockdown and InCombatLockdown()) then return end
-        local ok = pcall(open, "/say " .. draft.text)
-        if ok then sayDraft = nil else Print("Chat editor blocked by client.") end
-    end)
-end
 local function Message(spell)
     if db.message then return (db.message:gsub("%%s", function() return spell end)) end
     local index = math.random(#messages - (lastMessage and 1 or 0))
@@ -68,7 +42,6 @@ local function Message(spell)
     return messages[index]
 end
 local function Cancel()
-    sayDraft = nil
     generation = generation + 1
     pending = {}
 end
@@ -109,10 +82,9 @@ local function Queue(guid, name, spellID, spell)
             if #text > 255 then Print("Message too long; shorten /ct message."); return end
             local send = C_ChatInfo and C_ChatInfo.SendChatMessage or SendChatMessage
             if not send then return end
-            local target = db.channel == "WHISPER" and name or nil
+            local target = name
             lastAttempt, lastSent[guid] = time, time
-            if PrepareSay(text) then return end
-            if pcall(send, text, db.channel, nil, target) then sent = sent + 1
+            if pcall(send, text, "WHISPER", nil, target) then sent = sent + 1
             else errors = errors + 1; Print("Chat blocked by client. /ct status for diagnostics.") end
             for key, when in pairs(lastSent) do
                 if time - when > db.cooldown then lastSent[key] = nil end
@@ -126,11 +98,12 @@ frame:SetScript("OnEvent", function(_, event, arg)
         db = ClassicThanksDB
         if type(db.enabled) ~= "boolean" then db.enabled = true end
         if type(db.groups) ~= "boolean" then db.groups = true end
-        if db.channel ~= "SAY" and db.channel ~= "WHISPER" then db.channel = "SAY" end
+        -- Migrate earlier say settings back to fully automatic private thanks.
+        db.channel = "WHISPER"
         if type(db.cooldown) ~= "number" or db.cooldown ~= db.cooldown then db.cooldown = 60 end
         db.cooldown = math.max(30, math.min(3600, db.cooldown))
         if type(db.message) ~= "string" or db.message == "" or #db.message > 200 then db.message = nil end
-        Print("0.1.0-beta.2 loaded. /ct help; default channel: say.")
+        Print("0.1.0-beta.3 loaded. /ct help; automatic whispers.")
     elseif event == "PLAYER_ENTERING_WORLD" then
         Cancel(); ready = false
         local ticket = generation
@@ -154,13 +127,10 @@ SLASH_CLASSICTHANKS2 = "/classicthanks"
 SlashCmdList.CLASSICTHANKS = function(input)
     if not db then return end
     local cmd, rest = input:match("^%s*(%S*)%s*(.-)%s*$"); cmd = cmd:lower()
-    if cmd == "send" then OpenSay()
-    elseif cmd == "on" or cmd == "off" then
+    if cmd == "on" or cmd == "off" then
         db.enabled = cmd == "on"; Cancel(); Print(db.enabled and "Enabled." or "Disabled.")
     elseif cmd == "channel" then
-        local channel = rest:upper()
-        if channel == "SAY" or channel == "WHISPER" then db.channel = channel; sayDraft = nil; Print("Channel: " .. channel:lower())
-        else Print("Use /ct channel say | whisper") end
+        Print("This version uses automatic whispers.")
     elseif cmd == "groups" and (rest == "on" or rest == "off") then
         db.groups = rest == "on"; Cancel(); Print("Thanks while grouped: " .. rest)
     elseif cmd == "cooldown" then
@@ -176,8 +146,7 @@ SlashCmdList.CLASSICTHANKS = function(input)
         Print((db.enabled and "Enabled" or "Disabled") .. "; channel " .. db.channel:lower() .. "; cooldown " .. db.cooldown .. "s.")
         Print("This login: chat requests=" .. sent .. ", errors=" .. errors .. ". Buff duration must be >120s.")
     else
-        Print("/ct on | off | status | preview ; /ct channel say | whisper")
-        Print("/ct send - open a pending outdoor say reply; press Enter to send.")
+        Print("/ct on | off | status | preview")
         Print("/ct groups on|off ; /ct cooldown 60 ; /ct message <text>|random")
     end
 end

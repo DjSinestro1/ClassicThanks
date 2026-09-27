@@ -34,13 +34,13 @@ local function make(saved, legacy)
     h.env=e; return h
 end
 for _,legacy in ipairs({false,true}) do
-    local h=make(nil,legacy); h:buff(); eq(#h.sent,1); eq(h.sent[1].channel,"SAY"); eq(h.sent[1].target,nil)
+    local h=make(nil,legacy); h:buff(); eq(#h.sent,1); eq(h.sent[1].channel,"WHISPER"); eq(h.sent[1].target,"Friend-Realm")
     h:cmd("channel whisper"); h:buff(); eq(#h.sent,1); h:advance(61); h:buff()
     eq(h.sent[2].channel,"WHISPER"); eq(h.sent[2].target,"Friend-Realm")
     assert(h.sent[1].text~=h.sent[2].text)
     h:cmd("channel raid"); eq(h.env.ClassicThanksDB.channel,"WHISPER")
     local r=make(h.env.ClassicThanksDB,legacy); r:buff(); eq(r.sent[1].channel,"WHISPER")
-    r:cmd("channel SAY"); eq(r.env.ClassicThanksDB.channel,"SAY")
+    r:cmd("channel SAY"); eq(r.env.ClassicThanksDB.channel,"WHISPER")
     for _,d in ipairs({0,15,120,121}) do
         h=make(nil,legacy); h.duration=d; h:buff(); eq(#h.sent,d>120 and 1 or 0)
     end
@@ -57,9 +57,10 @@ for _,legacy in ipairs({false,true}) do
     local replies={}; for i=1,400 do h:advance(61); h:buff(); replies[h.sent[#h.sent].text]=true end
     local count=0; for _ in pairs(replies) do count=count+1 end; eq(count,28)
     print("PASS ClassicThanks channel/filter/cooldown/reload/message tests (legacy="..tostring(legacy)..")")
-    h=make(nil,legacy); h.outdoors=true; h:buff(); eq(#h.sent,0); h:cmd("send"); eq(h.draft,nil); h:advance(0); assert(h.draft:find("/say ",1,true)==1)
-    h=make(nil,legacy); h.outdoors=true; h:buff(); h:advance(31); h:cmd("send"); eq(h.draft,nil)
-    h=make(nil,legacy); h.outdoors=true; h:buff(); h:cmd("off"); h:cmd("send"); eq(h.draft,nil)
-    h=make({channel="WHISPER"},legacy); h.outdoors=true; h:buff(); eq(h.sent[1].channel,"WHISPER")
-    print("PASS ClassicThanks outdoor hardware-event handling")
+    for _,saved in ipairs({{}, {channel="SAY"}, {channel="WHISPER"}, {channel="GUILD"}}) do
+        h=make(saved,legacy); h.outdoors=true; h:buff()
+        eq(h.sent[1].channel,"WHISPER"); eq(h.sent[1].target,"Friend-Realm"); eq(h.draft,nil)
+        h:cmd("send"); h:advance(0); eq(#h.sent,1); eq(h.draft,nil)
+    end
+    print("PASS ClassicThanks automatically whispers outdoors and migrates saved SAY settings")
 end

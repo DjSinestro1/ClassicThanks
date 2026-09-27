@@ -1,3 +1,9 @@
+# 0.1.0-beta.3
+
+- Restored fully automatic private whispers; previous SAY settings migrate to WHISPER.
+- Removed manual say drafts and the send command.
+- Kept all 28 replies, duration filtering, and cooldowns.
+
 # 0.1.0-beta.2
 
 - Initial public Classic Era beta, targeting 1.15.9.
