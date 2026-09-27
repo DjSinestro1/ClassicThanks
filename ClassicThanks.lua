@@ -62,13 +62,18 @@ local function BuffDuration(spellID)
 end
 local function SendThanks(name, spell)
     if db.channel == "EMOTE" then
+        -- The combat log may supply Name-Realm; emotes need the plain name.
+        -- Keep the original address intact for whispers. Never change targets.
+        local emoteName = name:match("^([^-]+)")
+        if not emoteName then return false end
         local emote = C_ChatInfo and C_ChatInfo.PerformEmote
         if type(emote) == "function" then
-            local ok, result = pcall(emote, "THANK", name)
-            return ok and (not issecretvalue or not issecretvalue(result)) and result == true
+            -- Blizzard's chat UI treats this return value as "restricted".
+            local ok, restricted = pcall(emote, "THANK", emoteName)
+            return ok and (not issecretvalue or not issecretvalue(restricted)) and not restricted
         end
         -- Older DoEmote return values differ; count only the API request.
-        if type(DoEmote) == "function" then return pcall(DoEmote, "THANK", name) end
+        if type(DoEmote) == "function" then return pcall(DoEmote, "THANK", emoteName) end
         return false
     end
     local text = Message(spell)
@@ -115,7 +120,7 @@ frame:SetScript("OnEvent", function(_, event, arg)
         if type(db.cooldown) ~= "number" or db.cooldown ~= db.cooldown then db.cooldown = 60 end
         db.cooldown = math.max(30, math.min(3600, db.cooldown))
         if type(db.message) ~= "string" or db.message == "" or #db.message > 200 then db.message = nil end
-        Print("0.1.0-beta.4 loaded. /ct help; default: automatic whispers.")
+        Print("0.1.0-beta.5 loaded. /ct help; default: automatic whispers.")
     elseif event == "PLAYER_ENTERING_WORLD" then
         Cancel(); ready = false
         local ticket = generation

@@ -1,8 +1,11 @@
 local function eq(a,b) assert(a==b,tostring(a).." ~= "..tostring(b)) end
 local function make(saved, legacy)
-    local h={now=0,timers={},sent={},emotes={},duration=3600}
+    local h={now=0,timers={},sent={},emotes={},output={},duration=3600}
     local e=setmetatable({ClassicThanksDB=saved,SlashCmdList={}}, {__index=_G})
-    e.print=function() end
+    e.print=function(text) h.output[#h.output+1]=text end
+    e.UnitName=function() error("Must not inspect the selected target") end
+    e.TargetUnit=function() error("Must not change targets") end
+    e.ClearTarget=function() error("Must not clear targets") end
     e.GetTime=function() return h.now end
     e.IsInInstance=function() return not h.outdoors end
     e.ChatFrameUtil={OpenChat=function(text) h.draft=text end}
@@ -14,7 +17,8 @@ local function make(saved, legacy)
     local function emote(token,target)
         h.emotes[#h.emotes+1]={token=token,target=target}
         if h.emoteError then error("blocked") end
-        return not h.emoteRejected
+        if h.emoteReturnNil then return nil end
+        return h.emoteRejected or false
     end
     if legacy then
         e.DoEmote=emote
@@ -25,7 +29,7 @@ local function make(saved, legacy)
         e.C_UnitAuras={GetAuraDataByIndex=function(_,i) if i==1 then return {name="Fortitude",spellId=1243,duration=h.duration} end end}
     end
     e.CombatLogGetCurrentEventInfo=function()
-        return h.now,h.kind or "SPELL_AURA_APPLIED",false,h.guid or "Player-Friend","Friend-Realm",0,0,
+        return h.now,h.kind or "SPELL_AURA_APPLIED",false,h.guid or "Player-Friend",h.casterName or "Friend-Realm",0,0,
             h.dest or "Player-Self","Self",0,0,1243,"Fortitude",2,h.auraType or "BUFF"
     end
     function h:event(event,arg) self.handler(nil,event,arg) end
@@ -71,7 +75,8 @@ for _,legacy in ipairs({false,true}) do
     print("PASS ClassicThanks automatically whispers outdoors and migrates saved SAY settings")
     h=make(nil,legacy); h:cmd("mode EmOtE"); eq(h.env.ClassicThanksDB.channel,"EMOTE")
     h=make(h.env.ClassicThanksDB,legacy); h:buff()
-    eq(#h.sent,0); eq(#h.emotes,1); eq(h.emotes[1].token,"THANK"); eq(h.emotes[1].target,"Friend-Realm")
+    eq(#h.sent,0); eq(#h.emotes,1); eq(h.emotes[1].token,"THANK"); eq(h.emotes[1].target,"Friend")
+    h:cmd("status"); assert(table.concat(h.output):find("errors=0",1,true))
     h:buff(); eq(#h.emotes,1)
     h:cmd("mode whisper"); h:buff(); eq(#h.sent,0)
     h:advance(61); h:buff(); eq(h.sent[1].channel,"WHISPER")
@@ -88,4 +93,18 @@ for _,legacy in ipairs({false,true}) do
     if legacy then h.env.DoEmote=nil else h.env.C_ChatInfo.PerformEmote=nil end
     h:buff(); eq(#h.emotes,0); eq(#h.sent,0)
     print("PASS ClassicThanks optional targeted emote/filter/cooldown/mode/reload tests")
+    for _,name in ipairs({"Buff Friend-Realm", "Buff Friend"}) do
+        h=make({channel="EMOTE"},legacy); h.casterName=name
+        h:event("COMBAT_LOG_EVENT_UNFILTERED"); h.casterName="Somebody Else"
+        h:advance(0.2); h:advance(1.1); eq(h.emotes[1].target,"Buff Friend")
+        h:cmd("mode whisper"); h.casterName=name; h:advance(61); h:buff()
+        eq(h.sent[1].target,name)
+    end
+    h=make({channel="EMOTE"},legacy); h.emoteReturnNil=true; h:buff(); h:cmd("status")
+    assert(table.concat(h.output):find("errors=0",1,true))
+    if not legacy then
+        h=make({channel="EMOTE"},legacy); h.emoteRejected=true; h:buff(); h:buff(); h:cmd("status")
+        eq(#h.emotes,1); eq(#h.sent,0); assert(table.concat(h.output):find("errors=1",1,true))
+    end
+    print("PASS ClassicThanks plain-name emotes, realm-qualified whispers, and restriction flags")
 end

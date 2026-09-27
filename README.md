@@ -26,7 +26,9 @@ Extract `ClassicThanks` into `_classic_era_/Interface/AddOns`, restart the clien
 
 `/classicthanks` is an alias. Settings persist across reloads. `channel` is an alias for `mode`; SAY is not supported.
 
-Emote mode uses the game's fixed thank-you, not the 28 whisper phrases or custom text. It passes the caster's name to the emote API without changing your target. Targeted delivery and automatic emotes still need in-game testing; range/client restrictions may prevent the intended result. Failed requests do not trigger a whisper fallback or retry. Mode changes cancel pending replies.
+Emote mode uses the game's fixed thank-you, not the 28 whisper phrases or custom text. It passes the caster's plain character name (without a realm suffix) to the emote API; whispers keep their realm-qualified addresses. It never changes your target or requires you to target the caster. The equivalent fix was verified in-game on Forever; targeted delivery on this client still needs testing. Range/client restrictions may prevent the intended result. Failed requests do not trigger a whisper fallback or retry. Mode changes cancel pending replies.
+
+Emote return values are handled as restriction flags, matching [Blizzard's chat UI](https://github.com/Gethe/wow-ui-source/blob/live/Interface/AddOns/Blizzard_ChatFrameBase/Shared/ChatFrameEditBox.lua), rather than as success flags.
 
 ## Test
 

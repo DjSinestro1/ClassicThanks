@@ -1,3 +1,10 @@
+# 0.1.0-beta.5
+
+- Ports the Forever-tested targeted-emote fix: use the caster's plain character name for THANK, but preserve realm-qualified whisper addresses.
+- Corrects false blocked warnings by interpreting PerformEmote's return as a restriction flag, matching Blizzard's chat UI.
+- Never changes your target or requires targeting the buff caster. Whisper remains the default and saved emote choices persist.
+- Automated regression tests cover names, delayed replies, and restriction flags. In-game verification on this client is still required.
+
 # 0.1.0-beta.4
 
 - Adds optional targeted THANK emotes via mode emote; automatic whispers remain the default.
