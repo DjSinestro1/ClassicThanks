@@ -16,13 +16,17 @@ Extract `ClassicThanks` into `_classic_era_/Interface/AddOns`, restart the clien
 
 - `/ct on` / `/ct off` - enable or disable.
 - `/ct status` - settings and diagnostics.
+- `/ct mode whisper` - automatic private replies (default).
+- `/ct mode emote` - built-in THANK emote directed at the buff caster.
 - `/ct preview` - local preview; sends nothing.
 - `/ct cooldown 60` - 30-3600 seconds.
 - `/ct groups on|off` - thanks while grouped (default on).
 - `/ct message Thanks for %s!` - custom message; `%s` inserts the buff name.
 - `/ct message random` - restore all 28 replies.
 
-`/classicthanks` is an alias. Settings persist across reloads. This version only sends whispers; old channel commands cannot reenable say.
+`/classicthanks` is an alias. Settings persist across reloads. `channel` is an alias for `mode`; SAY is not supported.
+
+Emote mode uses the game's fixed thank-you, not the 28 whisper phrases or custom text. It passes the caster's name to the emote API without changing your target. Targeted delivery and automatic emotes still need in-game testing; range/client restrictions may prevent the intended result. Failed requests do not trigger a whisper fallback or retry. Mode changes cancel pending replies.
 
 ## Test
 

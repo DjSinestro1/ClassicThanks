@@ -60,6 +60,23 @@ local function BuffDuration(spellID)
         if id == spellID then return duration end
     end
 end
+local function SendThanks(name, spell)
+    if db.channel == "EMOTE" then
+        local emote = C_ChatInfo and C_ChatInfo.PerformEmote
+        if type(emote) == "function" then
+            local ok, result = pcall(emote, "THANK", name)
+            return ok and (not issecretvalue or not issecretvalue(result)) and result == true
+        end
+        -- Older DoEmote return values differ; count only the API request.
+        if type(DoEmote) == "function" then return pcall(DoEmote, "THANK", name) end
+        return false
+    end
+    local text = Message(spell)
+    if #text > 255 then Print("Message too long; shorten /ct message."); return false end
+    local send = C_ChatInfo and C_ChatInfo.SendChatMessage or SendChatMessage
+    if type(send) ~= "function" then return false end
+    return pcall(send, text, "WHISPER", nil, name)
+end
 local function Queue(guid, name, spellID, spell)
     local now = GetTime()
     if not db.enabled or pending[guid] or (not db.groups and IsInGroup()) then return end
@@ -78,14 +95,9 @@ local function Queue(guid, name, spellID, spell)
             if not db.enabled or not ready or (not db.groups and IsInGroup()) then return end
             local time = GetTime()
             if time - lastAttempt < 3 or (lastSent[guid] and time - lastSent[guid] < db.cooldown) then return end
-            local text = Message(spell)
-            if #text > 255 then Print("Message too long; shorten /ct message."); return end
-            local send = C_ChatInfo and C_ChatInfo.SendChatMessage or SendChatMessage
-            if not send then return end
-            local target = name
             lastAttempt, lastSent[guid] = time, time
-            if pcall(send, text, "WHISPER", nil, target) then sent = sent + 1
-            else errors = errors + 1; Print("Chat blocked by client. /ct status for diagnostics.") end
+            if SendThanks(name, spell) then sent = sent + 1
+            else errors = errors + 1; Print("Reply unavailable or blocked by client. /ct status for diagnostics.") end
             for key, when in pairs(lastSent) do
                 if time - when > db.cooldown then lastSent[key] = nil end
             end
@@ -98,12 +110,12 @@ frame:SetScript("OnEvent", function(_, event, arg)
         db = ClassicThanksDB
         if type(db.enabled) ~= "boolean" then db.enabled = true end
         if type(db.groups) ~= "boolean" then db.groups = true end
-        -- Migrate earlier say settings back to fully automatic private thanks.
-        db.channel = "WHISPER"
+        -- Whisper is the default; preserve only an explicitly selected emote mode.
+        if db.channel ~= "EMOTE" then db.channel = "WHISPER" end
         if type(db.cooldown) ~= "number" or db.cooldown ~= db.cooldown then db.cooldown = 60 end
         db.cooldown = math.max(30, math.min(3600, db.cooldown))
         if type(db.message) ~= "string" or db.message == "" or #db.message > 200 then db.message = nil end
-        Print("0.1.0-beta.3 loaded. /ct help; automatic whispers.")
+        Print("0.1.0-beta.4 loaded. /ct help; default: automatic whispers.")
     elseif event == "PLAYER_ENTERING_WORLD" then
         Cancel(); ready = false
         local ticket = generation
@@ -129,8 +141,13 @@ SlashCmdList.CLASSICTHANKS = function(input)
     local cmd, rest = input:match("^%s*(%S*)%s*(.-)%s*$"); cmd = cmd:lower()
     if cmd == "on" or cmd == "off" then
         db.enabled = cmd == "on"; Cancel(); Print(db.enabled and "Enabled." or "Disabled.")
-    elseif cmd == "channel" then
-        Print("This version uses automatic whispers.")
+    elseif cmd == "channel" or cmd == "mode" then
+        local channel = rest:upper()
+        if channel == "WHISPER" or channel == "EMOTE" then
+            if db.channel ~= channel then Cancel() end
+            db.channel = channel
+            Print("Thank-you mode: " .. channel:lower() .. ".")
+        else Print("Use /ct mode whisper | emote (default: whisper).") end
     elseif cmd == "groups" and (rest == "on" or rest == "off") then
         db.groups = rest == "on"; Cancel(); Print("Thanks while grouped: " .. rest)
     elseif cmd == "cooldown" then
@@ -147,6 +164,7 @@ SlashCmdList.CLASSICTHANKS = function(input)
         Print("This login: chat requests=" .. sent .. ", errors=" .. errors .. ". Buff duration must be >120s.")
     else
         Print("/ct on | off | status | preview")
+        Print("/ct mode whisper | emote (default: whisper)")
         Print("/ct groups on|off ; /ct cooldown 60 ; /ct message <text>|random")
     end
 end
